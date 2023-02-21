@@ -1,0 +1,2 @@
+// Insert your code in part6/p6_code.cpp
+// Edit the file extension and web template to match your programming language.
