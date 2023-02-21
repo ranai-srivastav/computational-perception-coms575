@@ -3,7 +3,7 @@
 import cv2
 import numpy
 
-INPUT_STRING = "images/image_part4b.png"
+INPUT_STRING = "image_part4a.png"
 
 raw_img = cv2.imread(INPUT_STRING)
 original = raw_img
@@ -11,7 +11,7 @@ raw_img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
 _, raw_img = cv2.threshold(raw_img, 250, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 raw_img_inv = ~raw_img  # inverted has white bkg
 
-struct_elem = cv2.imread("images/letter_cutouts/A.png")
+struct_elem = cv2.imread("A.png")
 struct_elem = cv2.cvtColor(struct_elem, cv2.COLOR_BGR2GRAY)
 _, struct_elem = cv2.threshold(struct_elem, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 struct_elem_inv = ~struct_elem  # has black bkg
@@ -22,7 +22,7 @@ red_mask = cv2.dilate(red_mask, struct_elem_inv)
 
 fin_img = cv2.cvtColor(red_mask, cv2.COLOR_GRAY2BGR)
 
-if INPUT_STRING == "images/image_part4a.png":
+if INPUT_STRING == "image_part4a.png":
     row_mask = (45, 232)
     col_mask = (70, 390)
 else:
