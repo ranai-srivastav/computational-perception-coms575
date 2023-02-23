@@ -25,14 +25,10 @@ for letter in letters:
     _, letter_img = cv2.threshold(letter_img, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     struct_elems.append(letter_img)
 
-empty_row_se = cv2.imread("empty_row.png")
-empty_row_se = cv2.cvtColor(empty_row_se, cv2.COLOR_BGR2GRAY)
-_, empty_row_se = cv2.threshold(empty_row_se, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
+IMG_NAME = "image_part8b.png"
 
-IMG_NAME = "image_part7a.png"
-
-if IMG_NAME == "image_part7a.png":
+if IMG_NAME == "image_part8a.png":
     raw_img = cv2.imread(IMG_NAME)
     raw_img = raw_img[20:450, 40:400]
 else:
@@ -40,77 +36,152 @@ else:
 
 bw_image = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
 _, bw_image = cv2.threshold(bw_image, 200, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+cv2.imshow("img", bw_image)
+cv2.waitKey(000)
 
-col_sum = numpy.sum(bw_image, axis=0)
-row_sum = numpy.sum(bw_image, axis=1)
+row_sum = numpy.sum(bw_image, axis=1, dtype=numpy.int64)
 
-last_elem = row_sum[-1]
-for offset, i in enumerate(numpy.flip(row_sum)):
-    if last_elem > i:
-        break
-    else:
-        last_elem = i
+""" Breaking the image into rows """
+edges = []
+count = 0
+last_elem = row_sum[0]
+for offset, i in enumerate(row_sum):
+    if abs(last_elem - i) > 70000:
+        edges.append(offset)
+    last_elem = i
 
-bw_image = bw_image[:offset, :]
+rows = []
 
-vert_se = numpy.ones((int(bw_image.shape[0]*0.75), 1), dtype=numpy.uint8) * 151
-_, vert_se = cv2.threshold(vert_se, 200, 255, cv2.THRESH_BINARY)
+for i in range(len(edges)-1):
+    img = bw_image[edges[i]:edges[i+1], :]
+    i = i+2
+    if count % 2 == 0:
+        rows.append(img)
+    count += 1
 
-hor_se = numpy.ones((1, int(bw_image.shape[1]*0.75)) , dtype=numpy.uint8) * 151
-_, hor_se = cv2.threshold(hor_se, 200, 255, cv2.THRESH_BINARY)
+# for img in rows:
+#     cv2.imshow("img", img)
+#     cv2.waitKey(1000)
 
-vert_mask = cv2.erode(bw_image, ~vert_se)
-hor_mask = cv2.erode(bw_image, ~hor_se)
-bw_image = cv2.bitwise_and(bw_image, ~vert_mask)
-bw_image = cv2.bitwise_and(bw_image, ~hor_mask)
+edges = []
+
+col_sum = numpy.sum(rows[0], axis=0, dtype=numpy.int64)
+last_elem = col_sum[0]
+for offset, i in enumerate(col_sum):
+    if abs(last_elem - i) > 8000:
+        edges.append(offset)
+    last_elem = i
+
+
+"""Breaking each row into cols"""
+for row in rows:
+    cols = []
+    count = 0
+    for i in range(len(edges)-1):
+        img = row[:, edges[i]:edges[i+1]]
+        i = i+2
+        if count % 2 == 0:
+            cols.append(img)
+        count += 1
+
+    letter_masks = []
+    detected_letters = []
+
+    for img in cols:
+        cv2.imshow("actual", img)
+        cv2.waitKey(500)
+        is_E = False
+        for i, se in enumerate(struct_elems):
+            mask = cv2.erode(img, ~se)
+            mask = mask[:-9]
+            se = cv2.flip(se, 0)
+            se = cv2.flip(se, 1)
+            mask = cv2.dilate(mask, ~se)
+            cv2.imshow("mask", mask)
+            cv2.waitKey(100)
+            # letter_masks.append(mask)
+
+            if numpy.any(mask) and (i % 26) != 5 and (i % 26) != 8:
+                # cv2.imshow(f"detected {i % 26}", mask)
+                if i == 4:
+                    is_E = True
+                if is_E and i == 11:
+                    continue
+                print(chr((i % 26) + 65), end=" ")
+
+            # for j, mask in enumerate(letter_masks):
+            #
+            #     if numpy.any(mask) and (j % 26) != 5 and (j % 26) != 8:
+            #         cv2.imshow(f"detected {j % 26}", mask)
+            #         print((j % 26), end=" ")
+        # cv2.waitKey(00)
+    print()
+
+
+#
+# bw_image = bw_image[:offset, :]
 # cv2.imshow("mask", bw_image)
-
-# R and B have an F
-# B, D, E, F, H, K,  L,  M,  N,  P,  R,  T, all have an
-# 1, 3, 4, 5, 7, 10, 11, 12, 13, 15, 17, 19
-
-detected_letters = []
-letter_masks = []
-
-for i, se in enumerate(struct_elems):
-    mask = cv2.erode(bw_image, ~se)
-    se = cv2.flip(se, 0)
-    se = cv2.flip(se, 1)
-    mask = cv2.dilate(mask, ~se)
-    letter_masks.append(mask)
-
-for i, mask in enumerate(letter_masks):
-
-    if i == 8:
-        # cv2.imshow("pre dIlate", mask)
-        se = numpy.ones((23, 3), dtype=numpy.uint8) * 201
-        _, se = cv2.threshold(se, 200, 255, cv2.THRESH_BINARY)
-        mask = cv2.erode(mask, se)
-        # cv2.imshow("dilate", mask)
-        mask = cv2.bitwise_and(mask, ~letter_masks[1])
-        mask = cv2.bitwise_and(mask, ~letter_masks[3])
-        mask = cv2.bitwise_and(mask, ~letter_masks[4])
-        mask = cv2.bitwise_and(mask, ~letter_masks[5])
-        mask = cv2.bitwise_and(mask, ~letter_masks[7])
-        mask = cv2.bitwise_and(mask, ~letter_masks[11])
-        mask = cv2.bitwise_and(mask, ~letter_masks[12])
-        mask = cv2.bitwise_and(mask, ~letter_masks[13])
-        mask = cv2.bitwise_and(mask, ~letter_masks[15])
-        mask = cv2.bitwise_and(mask, ~letter_masks[17])
-        mask = cv2.bitwise_and(mask, ~letter_masks[19])
-        mask = cv2.dilate(mask, ~struct_elems[8])
-        # cv2.imshow("I w/o repeat", mask)
-
-    if numpy.any(mask):
-        detected_letters.append(mask)
-
-for mask in detected_letters:
-    color = numpy.array([numpy.random.randint(0, 255), numpy.random.randint(0, 255), numpy.random.randint(0, 255)])
-    for i, row in enumerate(mask):
-        for j, pxl in enumerate(row):
-            if pxl > 200:
-                raw_img[i][j] = color
-
-
-cv2.imshow("Final img", raw_img)
-cv2.waitKey(0000)
+# cv2.waitKey(5000)
+#
+# vert_se = numpy.ones((int(bw_image.shape[0]*0.75), 1), dtype=numpy.uint8) * 151
+# _, vert_se = cv2.threshold(vert_se, 200, 255, cv2.THRESH_BINARY)
+#
+# hor_se = numpy.ones((1, int(bw_image.shape[1]*0.75)) , dtype=numpy.uint8) * 151
+# _, hor_se = cv2.threshold(hor_se, 200, 255, cv2.THRESH_BINARY)
+#
+# vert_mask = cv2.erode(bw_image, ~vert_se)
+# hor_mask = cv2.erode(bw_image, ~hor_se)
+# bw_image = cv2.bitwise_and(bw_image, ~vert_mask)
+# bw_image = cv2.bitwise_and(bw_image, ~hor_mask)
+# cv2.imshow("mask", bw_image)
+# cv2.waitKey(5000)
+#
+# # R and B have an F
+# # B, D, E, F, H, K,  L,  M,  N,  P,  R,  T, all have an
+# # 1, 3, 4, 5, 7, 10, 11, 12, 13, 15, 17, 19
+#
+# detected_letters = []
+# letter_masks = []
+#
+# for i, se in enumerate(struct_elems):
+#     mask = cv2.erode(bw_image, ~se)
+#     se = cv2.flip(se, 0)
+#     se = cv2.flip(se, 1)
+#     mask = cv2.dilate(mask, ~se)
+#     letter_masks.append(mask)
+#
+# for i, mask in enumerate(letter_masks):
+#
+#     if i == 8:
+#         # cv2.imshow("pre dIlate", mask)
+#         se = numpy.ones((23, 3), dtype=numpy.uint8) * 201
+#         _, se = cv2.threshold(se, 200, 255, cv2.THRESH_BINARY)
+#         mask = cv2.erode(mask, se)
+#         # cv2.imshow("dilate", mask)
+#         mask = cv2.bitwise_and(mask, ~letter_masks[1])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[3])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[4])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[5])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[7])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[11])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[12])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[13])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[15])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[17])
+#         mask = cv2.bitwise_and(mask, ~letter_masks[19])
+#         mask = cv2.dilate(mask, ~struct_elems[8])
+#         # cv2.imshow("I w/o repeat", mask)
+#
+#     if numpy.any(mask):
+#         detected_letters.append(mask)
+#
+# for mask in detected_letters:
+#     color = numpy.array([numpy.random.randint(0, 255), numpy.random.randint(0, 255), numpy.random.randint(0, 255)])
+#     for i, row in enumerate(mask):
+#         for j, pxl in enumerate(row):
+#             if pxl > 200:
+#                 raw_img[i][j] = color
+#
+#
+# cv2.imshow("Final img", raw_img)
+# cv2.waitKey(0000)
