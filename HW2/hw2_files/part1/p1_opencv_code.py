@@ -26,4 +26,4 @@ vertical = cv2.dilate(vertical, kernel_vertical)
 
 cv2.imshow("Vertical", vertical)
 cv2.imshow("Horizontal", horizontal)
-cv2.waitKey(5000)
+cv2.waitKey(000)

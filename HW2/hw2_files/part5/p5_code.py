@@ -3,135 +3,104 @@
 import cv2
 import numpy
 
-INPUT_STRING = "image_part5b.png"
+IMG_NAME = "image_part5b.png"
 
+letters = ["../../letter_cutouts/" + chr(char) + ".png" for char in range(65, 91)]
+struct_elems = []
 
-def change_col(img, color):
-    if INPUT_STRING == "image_part5a.png":
-        for i in range(50, 240):
-            for j in range(50, 400):
-                if img[i][j][0] > 100 and img[i][j][1] > 100:
-                    img[i][j] = color
+for letter in letters:
+    letter_img = cv2.imread(letter)
+    letter_img = cv2.cvtColor(letter_img, cv2.COLOR_BGR2GRAY)
+    _, letter_img = cv2.threshold(letter_img, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    struct_elems.append(letter_img)
+
+if IMG_NAME == "image_part5a.png":
+    raw_img = cv2.imread(IMG_NAME)
+    raw_img = raw_img[20:450, 40:400]
+else:
+    raw_img = cv2.imread(IMG_NAME)
+
+bw_image = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
+_, bw_image = cv2.threshold(bw_image, 200, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+col_sum = numpy.sum(bw_image, axis=0)
+row_sum = numpy.sum(bw_image, axis=1)
+
+last_elem = row_sum[-1]
+for offset, i in enumerate(numpy.flip(row_sum)):
+    if last_elem > i:
+        break
     else:
-        for i in range(50, 200):
-            for j in range(50, 330):
-                if img[i][j][0] > 100 and img[i][j][1] > 100:
-                    img[i][j] = color
-    return img
+        last_elem = i
+
+bw_image = bw_image[:offset, :]
+
+vert_se = numpy.ones((int(bw_image.shape[0]*0.75), 1), dtype=numpy.uint8) * 151
+_, vert_se = cv2.threshold(vert_se, 200, 255, cv2.THRESH_BINARY)
+
+hor_se = numpy.ones((1, int(bw_image.shape[1]*0.75)) , dtype=numpy.uint8) * 151
+_, hor_se = cv2.threshold(hor_se, 200, 255, cv2.THRESH_BINARY)
+
+vert_mask = cv2.erode(bw_image, ~vert_se)
+hor_mask = cv2.erode(bw_image, ~hor_se)
+bw_image = cv2.bitwise_and(bw_image, ~vert_mask)
+bw_image = cv2.bitwise_and(bw_image, ~hor_mask)
+# cv2.imshow("mask", bw_image)
+
+# R and B have an F
+# B, D, E, F, H, K,  L,  M,  N,  P,  R,  T, all have an
+# 1, 3, 4, 5, 7, 10, 11, 12, 13, 15, 17, 19
+
+# A B C D E F G H I J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z
+# 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
 
 
-raw_img = cv2.imread(INPUT_STRING)
-original = raw_img
-raw_img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
-_, raw_img = cv2.threshold(raw_img, 250, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-reset = raw_img
-raw_img_inv = ~raw_img  # inverted has white bkg
+detected_letters = []
+letter_masks = []
 
-# ---------------A----------------------- #
-A_elem = cv2.imread("A.png")
-A_elem = cv2.cvtColor(A_elem, cv2.COLOR_BGR2GRAY)
-_, A_elem = cv2.threshold(A_elem, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-A_elem_inv = ~A_elem  # has black bkg
+for i, se in enumerate(struct_elems):
+    mask_in = cv2.erode(bw_image, ~se)
+    mask_out = cv2.erode(~bw_image, se)
+    se = cv2.flip(se, 0)
+    se = cv2.flip(se, 1)
+    mask = cv2.bitwise_and(~mask_out, mask_in)
+    mask = cv2.dilate(mask, ~se)
+    letter_masks.append(mask)
 
-# ---------------E----------------------- #
-E_elem = cv2.imread("E.png")
-E_elem = cv2.cvtColor(E_elem, cv2.COLOR_BGR2GRAY)
-_, E_elem = cv2.threshold(E_elem, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-E_elem_inv = ~E_elem  # has black bkg
 
-# ---------------I----------------------- #
-I_elem = cv2.imread("I.png")
-I_elem = cv2.cvtColor(I_elem, cv2.COLOR_BGR2GRAY)
-_, I_elem = cv2.threshold(I_elem, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-I_elem_inv = ~I_elem  # has black bkg
+for i, mask in enumerate(letter_masks):
 
-# ---------------O----------------------- #
-O_elem = cv2.imread("O.png")
-O_elem = cv2.cvtColor(O_elem, cv2.COLOR_BGR2GRAY)
-_, O_elem = cv2.threshold(O_elem, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-O_elem_inv = ~O_elem  # has black bkg
+    if i == 8:
+        # cv2.imshow("pre dIlate", mask)
+        se = numpy.ones((23, 3), dtype=numpy.uint8) * 201
+        _, se = cv2.threshold(se, 200, 255, cv2.THRESH_BINARY)
+        mask = cv2.erode(mask, se)
+        # cv2.imshow("dilate", mask)
+        mask = cv2.bitwise_and(mask, ~letter_masks[1])
+        mask = cv2.bitwise_and(mask, ~letter_masks[3])
+        mask = cv2.bitwise_and(mask, ~letter_masks[4])
+        mask = cv2.bitwise_and(mask, ~letter_masks[5])
+        mask = cv2.bitwise_and(mask, ~letter_masks[7])
+        mask = cv2.bitwise_and(mask, ~letter_masks[10])
+        mask = cv2.bitwise_and(mask, ~letter_masks[11])
+        mask = cv2.bitwise_and(mask, ~letter_masks[12])
+        mask = cv2.bitwise_and(mask, ~letter_masks[13])
+        mask = cv2.bitwise_and(mask, ~letter_masks[15])
+        mask = cv2.bitwise_and(mask, ~letter_masks[17])
+        mask = cv2.bitwise_and(mask, ~letter_masks[19])
+        mask = cv2.dilate(mask, ~struct_elems[8])
+        # cv2.imshow("I w/o repeat", mask)
 
-# ---------------U----------------------- #
-U_elem = cv2.imread("U.png")
-U_elem = cv2.cvtColor(U_elem, cv2.COLOR_BGR2GRAY)
-_, U_elem = cv2.threshold(U_elem, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-U_elem_inv = ~U_elem  # has black bkg
+    if numpy.any(mask) and i in [0, 4, 8, 14, 20, 24]:
+        detected_letters.append(mask)
 
-# ---------------Y----------------------- #
-Y_elem = cv2.imread("Y.png")
-Y_elem = cv2.cvtColor(Y_elem, cv2.COLOR_BGR2GRAY)
-_, Y_elem = cv2.threshold(Y_elem, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-Y_elem_inv = ~Y_elem  # has black bkg
+for mask in detected_letters:
+    color = numpy.array([numpy.random.randint(10, 255), numpy.random.randint(20, 255), numpy.random.randint(50, 255)])
+    for i, row in enumerate(mask):
+        for j, pxl in enumerate(row):
+            if pxl > 200:
+                raw_img[i][j] = color
 
-# ------------------ MASKING --------------------
 
-vert_mask = numpy.ones((40, 1), dtype=numpy.uint8)
-# mask = numpy.ones((40, 1), dtype=numpy.uint8)
-# vert_mask = numpy.hstack((vert_mask, mask))
-_, vert_mask = cv2.threshold(vert_mask, 190, 255, cv2.THRESH_BINARY)
-mask = cv2.erode(raw_img, ~vert_mask)
-mask = ~mask
-raw_img = cv2.bitwise_and(mask, raw_img)
-raw_img = ~raw_img
-# cv2.imshow("vert", raw_img)
-# cv2.waitKey(10000)
-
-# raw_img = reset
-raw_img = cv2.erode(~raw_img, I_elem_inv)
-I_elem_inv = cv2.flip(I_elem_inv, 0)
-raw_img = cv2.dilate(raw_img, I_elem_inv)
-col_mask = cv2.cvtColor(raw_img, cv2.COLOR_GRAY2BGR)
-col_mask = change_col(col_mask, numpy.array([200, 100, 150]))
-# cv2.imshow("I", col_mask)
-fin_mask = col_mask
-
-raw_img = reset
-raw_img = cv2.erode(raw_img, A_elem_inv)
-A_elem_inv = cv2.flip(A_elem_inv, 0)
-raw_img = cv2.dilate(raw_img, A_elem_inv)
-col_mask = cv2.cvtColor(raw_img, cv2.COLOR_GRAY2BGR)
-col_mask = change_col(col_mask, numpy.array([200, 200, 10]))
-# col_mask = cv2.bitwise_or(col_mask, original)
-# cv2.imshow("A", col_mask)
-fin_mask += col_mask
-
-raw_img = reset
-raw_img = cv2.erode(raw_img, E_elem_inv)
-E_elem_inv = cv2.flip(E_elem_inv, 0)
-raw_img = cv2.dilate(raw_img, E_elem_inv)
-col_mask = cv2.cvtColor(raw_img, cv2.COLOR_GRAY2BGR)
-col_mask = change_col(col_mask, numpy.array([100, 100, 100]))
-# col_mask = cv2.bitwise_or(col_mask, original)
-# cv2.imshow("E", col_mask)
-fin_mask += col_mask
-
-raw_img = reset
-raw_img = cv2.erode(raw_img, O_elem_inv)
-O_elem_inv = cv2.flip(O_elem_inv, 0)
-raw_img = cv2.dilate(raw_img, O_elem_inv)
-col_mask = cv2.cvtColor(raw_img, cv2.COLOR_GRAY2BGR)
-col_mask = change_col(col_mask, numpy.array([100, 100, 10]))
-# col_mask = cv2.bitwise_or(col_mask, original)
-# cv2.imshow("O", col_mask)
-fin_mask += col_mask
-
-raw_img = reset
-raw_img = cv2.erode(raw_img, U_elem_inv)
-U_elem_inv = cv2.flip(U_elem_inv, 0)
-raw_img = cv2.dilate(raw_img, U_elem_inv)
-col_mask = cv2.cvtColor(raw_img, cv2.COLOR_GRAY2BGR)
-col_mask = change_col(col_mask, numpy.array([30, 150, 200]))
-# cv2.imshow("U", col_mask)
-fin_mask += col_mask
-
-raw_img = reset
-raw_img = cv2.erode(raw_img, Y_elem_inv)
-Y_elem_inv = cv2.flip(Y_elem_inv, 0)
-raw_img = cv2.dilate(raw_img, Y_elem_inv)
-col_mask = cv2.cvtColor(raw_img, cv2.COLOR_GRAY2BGR)
-col_mask = change_col(col_mask, numpy.array([250, 150, 10]))
-# cv2.imshow("Y", col_mask)
-fin_mask += col_mask
-cv2.imshow("final", fin_mask)
-
-cv2.waitKey(10000)
+cv2.imshow("Final img", raw_img)
+cv2.waitKey(0000)

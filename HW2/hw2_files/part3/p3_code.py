@@ -4,10 +4,11 @@
 
 import cv2
 
-load_img = cv2.imread("image_part3b.png")
+#TODO crop the images
+load_img = cv2.imread("image_part3a.png")
 load_img = cv2.cvtColor(load_img, cv2.COLOR_BGR2GRAY)
 _, load_img = cv2.threshold(load_img, 250, 255, cv2.THRESH_BINARY)
-# load_img = load_img[60:550][:]
+# load_img = load_img[60:550, :]
 load_img = load_img
 
 struct_elem = cv2.imread("6_5_Grid.png")
