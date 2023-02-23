@@ -1,18 +1,13 @@
-# Write a program to detect the guess word in each row of the input image and print it on the screen in all-caps.
-# Don't print anything for the empty rows (if any) at the bottom of the image.
-# The output in this case is not an image, but text in ASCII format that is printed on the screen.
-# For example, for the test image shown below the output should be
+# This is the same as problem 8, but now also print two integers after each word that indicate the quality of the
+# guess. The first integer indicates the number of letters in correct positions (green squares). The second integer
+# maps to the correct letters but in wrong positions (orange squares). For example:
 #
-# CLOUD
+# CLOUD 1 1
 #
-# BLUNT
+# BLUNT 1 2
 #
-# ULTRA
+# ULTRA 5 0
 
-# Find all letters within the grid.
-# Color each letter in a different random color.
-# Identical letters must have the same color.
-# Cutouts of all 26 letters used in the word search puzzles can be found in the 'letter_cutouts' folder.
 import cv2
 import numpy
 
@@ -26,9 +21,9 @@ for letter in letters:
     struct_elems.append(letter_img)
 
 
-IMG_NAME = "image_part8b.png"
+IMG_NAME = "image_part9b.png"
 
-if IMG_NAME == "image_part8a.png":
+if IMG_NAME == "image_part9a.png":
     raw_img = cv2.imread(IMG_NAME)
     raw_img = raw_img[20:450, 40:400]
 else:
@@ -36,60 +31,89 @@ else:
 
 bw_image = cv2.cvtColor(raw_img, cv2.COLOR_BGR2GRAY)
 _, bw_image = cv2.threshold(bw_image, 200, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-cv2.imshow("img", bw_image)
-cv2.waitKey(000)
+# cv2.imshow("img", bw_image)
+# cv2.waitKey(1000)
 
 row_sum = numpy.sum(bw_image, axis=1, dtype=numpy.int64)
 
 """ Breaking the image into rows """
-edges = []
+row_edges = []
 count = 0
 last_elem = row_sum[0]
 for offset, i in enumerate(row_sum):
     if abs(last_elem - i) > 70000:
-        edges.append(offset)
+        row_edges.append(offset)
     last_elem = i
 
 rows = []
+colored_rows = []
 
-for i in range(len(edges)-1):
-    img = bw_image[edges[i]:edges[i+1], :]
+for i in range(len(row_edges)-1):
+    img = bw_image[row_edges[i]:row_edges[i+1], :]
+    col_row = raw_img[row_edges[i]:row_edges[i+1], :]
     i = i+2
     if count % 2 == 0:
         rows.append(img)
+        colored_rows.append(col_row)
     count += 1
 
 # for img in rows:
 #     cv2.imshow("img", img)
 #     cv2.waitKey(1000)
 
-edges = []
+col_edges = []
 
 col_sum = numpy.sum(rows[0], axis=0, dtype=numpy.int64)
 last_elem = col_sum[0]
 for offset, i in enumerate(col_sum):
     if abs(last_elem - i) > 8000:
-        edges.append(offset)
+        col_edges.append(offset)
     last_elem = i
 
 
 """Breaking each row into cols"""
-for row in rows:
+for row, colored_row in zip(rows, colored_rows):
     cols = []
+    colored_cols = []
     count = 0
-    for i in range(len(edges)-1):
-        img = row[:, edges[i]:edges[i+1]]
+    for i in range(len(col_edges)-1):
+        img = row[:, col_edges[i]:col_edges[i+1]]
+        rangeen = colored_row[:, col_edges[i]:col_edges[i+1]]
+
         i = i+2
         if count % 2 == 0:
             cols.append(img)
+            colored_cols.append(rangeen)
         count += 1
 
     letter_masks = []
     detected_letters = []
 
+    num_green = 0
+    num_yellow = 0
+
+    for colored_col in colored_cols:
+        green = cv2.cvtColor(colored_col, cv2.COLOR_BGR2HSV)
+        lower = numpy.array([55, 10, 10])
+        upper = numpy.array([65, 255, 255])
+        green = cv2.inRange(green, lower, upper)
+
+        if numpy.any(green):
+            num_green += 1
+            continue
+
+        yellow = cv2.cvtColor(colored_col, cv2.COLOR_BGR2HSV)
+        lower = numpy.array([23, 60, 80])
+        upper = numpy.array([28, 255, 255])
+        yellow = cv2.inRange(yellow, lower, upper)
+
+        if numpy.any(yellow):
+            num_yellow += 1
+            continue
+
     for img in cols:
-        cv2.imshow("actual", img)
-        cv2.waitKey(500)
+        # cv2.imshow("actual", img)
+        # cv2.waitKey(500)
         is_E = False
         for i, se in enumerate(struct_elems):
             mask = cv2.erode(img, ~se)
@@ -97,8 +121,8 @@ for row in rows:
             se = cv2.flip(se, 0)
             se = cv2.flip(se, 1)
             mask = cv2.dilate(mask, ~se)
-            cv2.imshow("mask", mask)
-            cv2.waitKey(100)
+            # cv2.imshow("mask", mask)
+            # cv2.waitKey(100)
             # letter_masks.append(mask)
 
             if numpy.any(mask) and (i % 26) != 5 and (i % 26) != 8:
@@ -108,6 +132,9 @@ for row in rows:
                 if is_E and i == 11:
                     continue
                 print(chr((i % 26) + 65), end=" ")
-    print()
+    print("", end="  ")
+    print(num_green, end=" ")
+    print(num_yellow, end=" ")
 
+    print()
 
