@@ -1,8 +1,13 @@
-# Find all letters within the grid. Color each letter in a different random color. Identical letters must have the
-# same color. Cutouts of all 26 letters used in the word search puzzles can be found in the 'letter_cutouts' folder.
+# Find all vowels within the grid and replace each with the same letter but in a different font.
+#
+# You will have to make your own templates for the new versions of the six vowels, or figure out some other way to
+# print text to an image at the right pixel coordinates. Cutouts of all symbols used in this problem can be found in
+# the letter_cutouts folder.
 
 import cv2
 import numpy
+
+IMG_NAME = "image_part6a.png"
 
 letters = ["../../letter_cutouts/" + chr(char) + ".png" for char in range(65, 91)]
 struct_elems = []
@@ -13,14 +18,30 @@ for letter in letters:
     _, letter_img = cv2.threshold(letter_img, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     struct_elems.append(letter_img)
 
-empty_row_se = cv2.imread("empty_row.png")
-empty_row_se = cv2.cvtColor(empty_row_se, cv2.COLOR_BGR2GRAY)
-_, empty_row_se = cv2.threshold(empty_row_se, 225, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+paths = [x + "_replacement.png" for x in ["A", "E", "I", "O", "U"]]
+replacements = []
 
+for i, path in enumerate(paths):
+    letter_img = cv2.imread(path)
+    letter_img = cv2.cvtColor(letter_img, cv2.COLOR_BGR2GRAY)
+    _, letter_img = cv2.threshold(letter_img, 220, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    if i == 0:
+        letter_img = ~letter_img
+        letter_img = letter_img[5:-10, 15:-20]
+    elif i == 1:
+        letter_img = letter_img[10:, :-25]
+    elif i == 2:
+        letter_img = letter_img[20:, 20:-20]
+    elif i == 3:
+        letter_img = letter_img[:-10, 5:-10]
+    elif i == 4:
+        letter_img = letter_img[20:-10, 20:-20]
+        letter_img = cv2.resize(letter_img, (int(letter_img.shape[0]*0.6), int(letter_img.shape[1]*0.6)))
+    replacements.append(letter_img)
+    # cv2.imshow("Final img", letter_img)
+    # cv2.waitKey(0000)
 
-IMG_NAME = "image_part7a.png"
-
-if IMG_NAME == "image_part7a.png":
+if IMG_NAME == "image_part6a.png":
     raw_img = cv2.imread(IMG_NAME)
     raw_img = raw_img[20:450, 40:400]
 else:
@@ -41,10 +62,10 @@ for offset, i in enumerate(numpy.flip(row_sum)):
 
 bw_image = bw_image[:offset, :]
 
-vert_se = numpy.ones((int(bw_image.shape[0]*0.75), 1), dtype=numpy.uint8) * 151
+vert_se = numpy.ones((int(bw_image.shape[0] * 0.75), 1), dtype=numpy.uint8) * 151
 _, vert_se = cv2.threshold(vert_se, 200, 255, cv2.THRESH_BINARY)
 
-hor_se = numpy.ones((1, int(bw_image.shape[1]*0.75)) , dtype=numpy.uint8) * 151
+hor_se = numpy.ones((1, int(bw_image.shape[1] * 0.75)), dtype=numpy.uint8) * 151
 _, hor_se = cv2.threshold(hor_se, 200, 255, cv2.THRESH_BINARY)
 
 vert_mask = cv2.erode(bw_image, ~vert_se)
@@ -67,17 +88,40 @@ for i, se in enumerate(struct_elems):
     se = cv2.flip(se, 0)
     se = cv2.flip(se, 1)
     mask = cv2.bitwise_and(~mask_out, mask_in)
-    mask = cv2.dilate(mask, ~se)
+    if i == 0:
+        se = ~replacements[0]
+        se = cv2.flip(se, 0)
+        se = numpy.flip(se, 1)
+        mask = cv2.dilate(mask, se)
+    elif i == 4:
+        se = ~replacements[1]
+        se = cv2.flip(se, 0)
+        se = numpy.flip(se, 1)
+        mask = cv2.dilate(mask, se)
+    elif i == 8:
+        se = ~replacements[2]
+        se = cv2.flip(se, 0)
+        se = numpy.flip(se, 1)
+        mask = cv2.dilate(mask, se)
+    elif i == 14:
+        se = ~replacements[3]
+        se = cv2.flip(se, 0)
+        se = numpy.flip(se, 1)
+        mask = cv2.dilate(mask, se)
+    elif i == 20:
+        se = ~replacements[4]
+        se = cv2.flip(se, 0)
+        se = numpy.flip(se, 1)
+        mask = cv2.dilate(mask, se)
+    else:
+        mask = cv2.dilate(mask, ~se)
     letter_masks.append(mask)
-
 
 for i, mask in enumerate(letter_masks):
 
     if i == 5:
         mask = cv2.bitwise_and(mask, ~letter_masks[1])
         mask = cv2.bitwise_and(mask, ~letter_masks[17])
-        cv2.imshow("cool", mask)
-        cv2.waitKey(00)
 
     if i == 8:
         # cv2.imshow("pre dIlate", mask)
@@ -102,12 +146,18 @@ for i, mask in enumerate(letter_masks):
     if numpy.any(mask):
         detected_letters.append(mask)
 
+fin_img = detected_letters[0]
+
 for mask in detected_letters:
-    color = numpy.array([numpy.random.randint(0, 255), numpy.random.randint(0, 255), numpy.random.randint(0, 255)])
-    for i, row in enumerate(mask):
-        for j, pxl in enumerate(row):
-            if pxl > 200:
-                raw_img[i][j] = color
+    fin_img += mask
 
+# for mask in detected_letters:
+#     color = numpy.array([numpy.random.randint(0, 255), numpy.random.randint(0, 255), numpy.random.randint(0, 255)])
+#     for i, row in enumerate(mask):
+#         for j, pxl in enumerate(row):
+#             if pxl > 200:
+#                 raw_img[i][j] = color
 
-cv2.imwrite("solution_part7.png", raw_img)
+cv2.imshow("Final img", fin_img)
+cv2.imwrite("p6_answer.png", fin_img)
+cv2.waitKey(0000)
